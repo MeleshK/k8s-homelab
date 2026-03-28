@@ -45,16 +45,19 @@ resource "null_resource" "init_primary_cp" {
       # Wait for kube-vip to claim the VIP before kubeadm tries to use it
       "echo 'Waiting for kube-vip to claim ${var.control_plane.vip}...' && for i in $(seq 1 30); do ping -c1 -W1 ${var.control_plane.vip} > /dev/null 2>&1 && echo 'VIP is reachable' && break || echo \"Attempt $i: VIP not up yet, waiting 5s...\"; sleep 5; done",
 
-      # kubeadm init
-      "sudo kubeadm init --control-plane-endpoint=${var.control_plane.vip}:6443 --pod-network-cidr=${var.pod_cidr} --apiserver-advertise-address=${local.cp_ips[0]} --upload-certs --node-name=k8s-cp-1 2>&1 | sudo tee /var/log/kubeadm-init.log",
+      # Remove placeholder now that kube-vip is up — kubeadm will create the real one
+      "sudo rm -f /etc/kubernetes/admin.conf",
+
+      # kubeadm init — pipefail ensures a failed kubeadm exits non-zero even through tee
+      "set -o pipefail && sudo kubeadm init --control-plane-endpoint=${var.control_plane.vip}:6443 --pod-network-cidr=${var.pod_cidr} --apiserver-advertise-address=${local.cp_ips[0]} --upload-certs --node-name=k8s-cp-1 2>&1 | sudo tee /var/log/kubeadm-init.log",
 
       # kubeconfig
       "mkdir -p /home/${local.ssh_user}/.kube",
       "sudo cp /etc/kubernetes/admin.conf /home/${local.ssh_user}/.kube/config",
       "sudo chown ${local.ssh_user}:${local.ssh_user} /home/${local.ssh_user}/.kube/config",
 
-      # Wait for kube-vip to claim the VIP and apiserver to be reachable via it
-      "echo 'Waiting for VIP ${var.control_plane.vip}:6443...' && for i in $(seq 1 30); do curl -sk https://${var.control_plane.vip}:6443/healthz | grep -q ok && echo 'VIP ready' && break || echo \"Attempt $i: not ready yet, waiting 5s...\"; sleep 5; done",
+      # Wait for apiserver to be healthy via the VIP (not just pingable — fully ready)
+      "echo 'Waiting for apiserver at ${var.control_plane.vip}:6443...' && for i in $(seq 1 40); do curl -sk https://${var.control_plane.vip}:6443/healthz | grep -q ok && echo 'apiserver ready' && break || echo \"Attempt $i: not ready, waiting 5s...\"; sleep 5; done",
 
       # Calico
       "kubectl --kubeconfig=/home/${local.ssh_user}/.kube/config create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/tigera-operator.yaml",
