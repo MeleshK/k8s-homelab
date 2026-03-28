@@ -58,7 +58,7 @@ variable "os_type" {
 
 variable "k8s_version" {
   type    = string
-  default = "1.32"
+  default = "1.34"
 }
 
 variable "pod_cidr" {
@@ -74,7 +74,7 @@ variable "worker" {
   })
   default = {
     cores  = 2
-    memory = 4096
+    memory = 8192
     disk   = 30
   }
 }
