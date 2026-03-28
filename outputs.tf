@@ -32,11 +32,15 @@ resource "null_resource" "init_primary_cp" {
       timeout     = "20m"
     }
     inline = [
-      # kube-vip static pod (must exist before kubeadm init so it starts immediately)
-      "IFACE=$(ip route | grep default | awk '{print $5}' | head -1)",
+      # Create placeholder admin.conf so kube-vip's volume mount succeeds before kubeadm init
       "sudo mkdir -p /etc/kubernetes/manifests",
+      "sudo touch /etc/kubernetes/admin.conf",
+
+      # kube-vip static pod — no --leaderElection on primary so it claims VIP immediately
+      # (leader election requires the apiserver, which doesn't exist yet before kubeadm init)
+      "IFACE=$(ip route | grep default | awk '{print $5}' | head -1)",
       "sudo ctr image pull ghcr.io/kube-vip/kube-vip:${var.kube_vip_version}",
-      "sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:${var.kube_vip_version} vip /kube-vip manifest pod --interface $IFACE --address ${var.control_plane.vip} --controlplane --arp --leaderElection | sudo tee /etc/kubernetes/manifests/kube-vip.yaml",
+      "sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:${var.kube_vip_version} vip /kube-vip manifest pod --interface $IFACE --address ${var.control_plane.vip} --controlplane --arp | sudo tee /etc/kubernetes/manifests/kube-vip.yaml",
 
       # Wait for kube-vip to claim the VIP before kubeadm tries to use it
       "echo 'Waiting for kube-vip to claim ${var.control_plane.vip}...' && for i in $(seq 1 30); do ping -c1 -W1 ${var.control_plane.vip} > /dev/null 2>&1 && echo 'VIP is reachable' && break || echo \"Attempt $i: VIP not up yet, waiting 5s...\"; sleep 5; done",
