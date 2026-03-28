@@ -9,10 +9,12 @@ resource "null_resource" "init_cluster" {
 
   provisioner "remote-exec" {
     connection {
-      type        = "ssh"
-      host        = "10.0.0.10"
-      user        = "ubuntu"
-      private_key = file(pathexpand("~/.ssh/id_ed25519"))
+      type                = "ssh"
+      host                = "10.0.0.40"
+      user                = "ubuntu"
+      private_key         = file(pathexpand("~/.ssh/id_ed25519"))
+      host_key            = ""
+      timeout             = "5m"
     }
     inline = [
       # Wait for cloud-init to finish
@@ -38,10 +40,12 @@ resource "null_resource" "join_workers" {
 
   provisioner "remote-exec" {
     connection {
-      type        = "ssh"
-      host        = proxmox_virtual_environment_vm.worker[count.index].ipv4_addresses[1][0]
-      user        = "ubuntu"
-      private_key = file(pathexpand("~/.ssh/id_ed25519"))
+      type                = "ssh"
+      host                = proxmox_virtual_environment_vm.worker[count.index].ipv4_addresses[1][0]
+      user                = "ubuntu"
+      private_key         = file(pathexpand("~/.ssh/id_ed25519"))
+      host_key            = ""
+      timeout             = "5m"
     }
     inline = [
       "cloud-init status --wait",
