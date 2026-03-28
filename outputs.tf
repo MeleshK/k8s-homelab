@@ -56,6 +56,9 @@ tofu apply -replace=null_resource.init_primary_cp
       "sudo cp /etc/kubernetes/admin.conf /home/${local.ssh_user}/.kube/config",
       "sudo chown ${local.ssh_user}:${local.ssh_user} /home/${local.ssh_user}/.kube/config",
 
+      # kube-vip RBAC — kubernetes-admin needs lease access for leader election
+      "kubectl --kubeconfig=/home/${local.ssh_user}/.kube/config apply -f - <<'RBAC'\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: system:kube-vip-role\nrules:\n- apiGroups: [\"coordination.k8s.io\"]\n  resources: [\"leases\"]\n  verbs: [\"get\",\"create\",\"update\",\"list\",\"watch\"]\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata:\n  name: system:kube-vip-binding\nroleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: ClusterRole\n  name: system:kube-vip-role\nsubjects:\n- kind: User\n  name: kubernetes-admin\n  apiGroup: rbac.authorization.k8s.io\nRBAC",
+
       # Phase 2: replace kube-vip manifest with --leaderElection now that apiserver exists
       # This enables proper HA leader election between CP nodes
       "sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:${var.kube_vip_version} vip-ha /kube-vip manifest pod --interface $IFACE --address ${var.control_plane.vip} --controlplane --arp --leaderElection | sudo tee /etc/kubernetes/manifests/kube-vip.yaml",
