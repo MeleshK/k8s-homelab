@@ -32,12 +32,6 @@ resource "null_resource" "init_primary_cp" {
       timeout     = "20m"
     }
     inline = [
-ssh -i ~/.ssh/id_ed25519 rocky@10.0.0.40 '
-  sudo kubeadm reset -f
-  sudo rm -rf /var/lib/etcd /var/lib/kubelet /etc/kubernetes
-  sudo systemctl start kubelet
-'
-tofu apply -replace=null_resource.init_primary_cp
       # Phase 1: kube-vip WITHOUT --leaderElection so it claims VIP immediately
       # without needing a running apiserver (no kubeconfig mount required)
       "sudo mkdir -p /etc/kubernetes/manifests",
