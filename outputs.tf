@@ -57,8 +57,8 @@ resource "null_resource" "init_primary_cp" {
       "echo 'Waiting for VIP ${var.control_plane.vip}:6443...' && for i in $(seq 1 30); do curl -sk https://${var.control_plane.vip}:6443/healthz | grep -q ok && echo 'VIP ready' && break || echo \"Attempt $i: not ready yet, waiting 5s...\"; sleep 5; done",
 
       # Calico
-      "kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/tigera-operator.yaml",
-      "kubectl apply -f /tmp/calico-installation.yaml",
+      "kubectl --kubeconfig=/home/${local.ssh_user}/.kube/config create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/tigera-operator.yaml",
+      "kubectl --kubeconfig=/home/${local.ssh_user}/.kube/config apply -f /tmp/calico-installation.yaml",
 
       # Worker join command
       "sudo kubeadm token create --print-join-command | sudo tee /tmp/kubeadm-join-worker.sh",
