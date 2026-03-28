@@ -10,8 +10,8 @@ resource "null_resource" "init_cluster" {
   provisioner "remote-exec" {
     connection {
       type                = "ssh"
-      host                = "10.0.0.40"
-      user                = "ubuntu"
+      host                = split("/", var.control_plane.ip)[0]
+      user                = local.ssh_user
       private_key         = file(pathexpand("~/.ssh/id_ed25519"))
       host_key            = ""
       timeout             = "5m"
@@ -42,7 +42,7 @@ resource "null_resource" "join_workers" {
     connection {
       type                = "ssh"
       host                = proxmox_virtual_environment_vm.worker[count.index].ipv4_addresses[1][0]
-      user                = "ubuntu"
+      user                = local.ssh_user
       private_key         = file(pathexpand("~/.ssh/id_ed25519"))
       host_key            = ""
       timeout             = "5m"
@@ -50,7 +50,7 @@ resource "null_resource" "join_workers" {
     inline = [
       "cloud-init status --wait",
       # Fetch join command from control plane via SSH proxy
-      "ssh -o StrictHostKeyChecking=no ubuntu@10.0.0.10 'cat /tmp/join.sh' | sudo bash"
+      "ssh -o StrictHostKeyChecking=no ${local.ssh_user}@${split("/", var.control_plane.ip)[0]} 'cat /tmp/join.sh' | sudo bash"
     ]
   }
 }

@@ -47,6 +47,15 @@ variable "control_plane" {
   }
 }
 
+variable "os_type" {
+  type    = string
+  default = "ubuntu"
+  validation {
+    condition     = contains(["ubuntu", "rocky"], var.os_type)
+    error_message = "os_type must be 'ubuntu' or 'rocky'."
+  }
+}
+
 variable "k8s_version" {
   type    = string
   default = "1.32"

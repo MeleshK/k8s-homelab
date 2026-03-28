@@ -1,10 +1,16 @@
+locals {
+  ssh_user = var.os_type == "rocky" ? "rocky" : "ubuntu"
+  cp_script     = var.os_type == "rocky" ? "scripts/control-plane-rocky.sh.tftp1" : "scripts/control-plane.sh.tftp1"
+  worker_script = var.os_type == "rocky" ? "scripts/worker-rocky.sh.tftp1" : "scripts/worker.sh.tftp1"
+}
+
 resource "proxmox_virtual_environment_file" "control_plane_cloud_init" {
   content_type = "snippets"
   datastore_id = "local"
   node_name    = var.proxmox_node
 
   source_raw {
-    data = templatefile("${path.module}/scripts/control-plane.sh.tftp1", {
+    data = templatefile("${path.module}/${local.cp_script}", {
       k8s_version      = var.k8s_version
       pod_cidr         = var.pod_cidr
       control_plane_ip = split("/", var.control_plane.ip)[0]
@@ -19,7 +25,7 @@ resource "proxmox_virtual_environment_file" "worker_cloud_init" {
   node_name    = var.proxmox_node
 
   source_raw {
-    data = templatefile("${path.module}/scripts/worker.sh.tftp1", {
+    data = templatefile("${path.module}/${local.worker_script}", {
       k8s_version      = var.k8s_version
       control_plane_ip = split("/", var.control_plane.ip)[0]
     })
@@ -68,7 +74,7 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
       servers = ["10.0.0.1", "8.8.8.8"]
     }
     user_account {
-      username = "ubuntu"
+      username = local.ssh_user
       keys     = [var.ssh_public_key]
     }
     user_data_file_id = proxmox_virtual_environment_file.control_plane_cloud_init.id
@@ -117,7 +123,7 @@ resource "proxmox_virtual_environment_vm" "worker" {
     }
     dns { servers = ["10.0.0.1", "8.8.8.8"] }
     user_account {
-      username = "ubuntu"
+      username = local.ssh_user
       keys     = [var.ssh_public_key]
     }
     user_data_file_id = proxmox_virtual_environment_file.worker_cloud_init.id
