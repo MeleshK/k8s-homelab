@@ -16,60 +16,70 @@ resource "null_resource" "wait_control_plane" {
   }
 }
 
-# Step 2: Join each worker — Terraform connects to workers via the control plane
-# as a jump host, so only Terraform's key is ever needed
+# Step 2: Fetch join command to local machine with retry
+# (sshd may briefly restart at the end of cloud-init)
+resource "null_resource" "fetch_join_command" {
+  depends_on = [null_resource.wait_control_plane]
+  triggers   = { cp_ip = var.control_plane.ip }
+
+  provisioner "local-exec" {
+    command = <<-EOF
+      for i in $(seq 1 12); do
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+          -i ~/.ssh/id_ed25519 \
+          ${local.ssh_user}@${split("/", var.control_plane.ip)[0]} \
+          'cat /tmp/kubeadm-join.sh' > /tmp/kubeadm-join.sh \
+          && [ -s /tmp/kubeadm-join.sh ] && exit 0
+        echo "Attempt $i failed, retrying in 10s..."
+        sleep 10
+      done
+      echo "ERROR: could not fetch join command after 12 attempts"
+      exit 1
+    EOF
+  }
+}
+
+# Step 3: For each worker — wait for cloud-init, copy join script, run it
 resource "null_resource" "join_workers" {
   count = var.worker_count
   depends_on = [
-    null_resource.wait_control_plane,
+    null_resource.fetch_join_command,
     proxmox_virtual_environment_vm.worker,
   ]
 
-  # Wait for worker cloud-init
   provisioner "remote-exec" {
     connection {
-      type                = "ssh"
-      host                = split("/", var.worker_ips[count.index])[0]
-      user                = local.ssh_user
-      private_key         = file(pathexpand("~/.ssh/id_ed25519"))
-      host_key            = ""
-      timeout             = "10m"
-      bastion_host        = split("/", var.control_plane.ip)[0]
-      bastion_user        = local.ssh_user
-      bastion_private_key = file(pathexpand("~/.ssh/id_ed25519"))
-      bastion_host_key    = ""
+      type        = "ssh"
+      host        = split("/", var.worker_ips[count.index])[0]
+      user        = local.ssh_user
+      private_key = file(pathexpand("~/.ssh/id_ed25519"))
+      host_key    = ""
+      timeout     = "10m"
     }
-    inline = ["cloud-init status --wait"]
+    inline = ["cloud-init status --wait; true"]
   }
 
-  # Copy join command from control plane to worker via Terraform (jump host connection)
-  provisioner "remote-exec" {
+  provisioner "file" {
     connection {
-      type                = "ssh"
-      host                = split("/", var.control_plane.ip)[0]
-      user                = local.ssh_user
-      private_key         = file(pathexpand("~/.ssh/id_ed25519"))
-      host_key            = ""
-      timeout             = "5m"
+      type        = "ssh"
+      host        = split("/", var.worker_ips[count.index])[0]
+      user        = local.ssh_user
+      private_key = file(pathexpand("~/.ssh/id_ed25519"))
+      host_key    = ""
+      timeout     = "5m"
     }
-    inline = [
-      "scp -o StrictHostKeyChecking=no /tmp/kubeadm-join.sh ${local.ssh_user}@${split("/", var.worker_ips[count.index])[0]}:/tmp/kubeadm-join.sh"
-    ]
+    source      = "/tmp/kubeadm-join.sh"
+    destination = "/tmp/kubeadm-join.sh"
   }
 
-  # Run the join on the worker
   provisioner "remote-exec" {
     connection {
-      type                = "ssh"
-      host                = split("/", var.worker_ips[count.index])[0]
-      user                = local.ssh_user
-      private_key         = file(pathexpand("~/.ssh/id_ed25519"))
-      host_key            = ""
-      timeout             = "10m"
-      bastion_host        = split("/", var.control_plane.ip)[0]
-      bastion_user        = local.ssh_user
-      bastion_private_key = file(pathexpand("~/.ssh/id_ed25519"))
-      bastion_host_key    = ""
+      type        = "ssh"
+      host        = split("/", var.worker_ips[count.index])[0]
+      user        = local.ssh_user
+      private_key = file(pathexpand("~/.ssh/id_ed25519"))
+      host_key    = ""
+      timeout     = "10m"
     }
     inline = ["sudo bash /tmp/kubeadm-join.sh --node-name=k8s-worker-${count.index + 1}"]
   }
