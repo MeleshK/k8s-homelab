@@ -34,14 +34,14 @@ variable "control_plane" {
   type = object({
     cores  = number
     memory = number
-    disk   = string
+    disk   = number
     ip     = string
     gw     = string
   })
   default = {
     cores  = 2
     memory = 4096
-    disk   = "30G"
+    disk   = 30
     ip     = "10.0.0.10/24"
     gw     = "10.0.0.1"
   }
@@ -61,11 +61,11 @@ variable "worker" {
   type = object({
     cores  = number
     memory = number
-    disk   = string
+    disk   = number
   })
   default = {
     cores  = 2
     memory = 4096
-    disk   = "30G"
+    disk   = 30
   }
 }
