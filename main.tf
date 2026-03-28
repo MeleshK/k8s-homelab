@@ -61,7 +61,7 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
   memory { dedicated = var.control_plane.memory }
 
   disk {
-    datastore_id = "local-lvm"
+    datastore_id = "fast-nvme"
     interface    = "scsi0"
     size         = var.control_plane.disk
     discard      = "on"
@@ -116,7 +116,7 @@ resource "proxmox_virtual_environment_vm" "worker" {
   memory { dedicated = var.worker.memory }
 
   disk {
-    datastore_id = "local-lvm"
+    datastore_id = "fast-nvme"
     interface    = "scsi0"
     size         = var.worker.disk
     discard      = "on"
