@@ -42,14 +42,14 @@ variable "control_plane" {
     cores  = 2
     memory = 4096
     disk   = 30
-    ip     = "10.0.0.10/24"
+    ip     = "10.0.0.40/24"
     gw     = "10.0.0.1"
   }
 }
 
 variable "os_type" {
   type    = string
-  default = "ubuntu"
+  default = "rocky"
   validation {
     condition     = contains(["ubuntu", "rocky"], var.os_type)
     error_message = "os_type must be 'ubuntu' or 'rocky'."
