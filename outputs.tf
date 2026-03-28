@@ -16,57 +16,60 @@ resource "null_resource" "wait_control_plane" {
   }
 }
 
-# Step 2: Fetch the join command from the control plane to the local machine
-resource "null_resource" "fetch_join_command" {
-  depends_on = [null_resource.wait_control_plane]
-  triggers   = { cp_ip = var.control_plane.ip }
-
-  provisioner "local-exec" {
-    command = "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 ${local.ssh_user}@${split("/", var.control_plane.ip)[0]} 'cat /tmp/kubeadm-join.sh' > /tmp/kubeadm-join.sh"
-  }
-}
-
-# Step 3: Copy join command to each worker and run it
+# Step 2: Join each worker — Terraform connects to workers via the control plane
+# as a jump host, so only Terraform's key is ever needed
 resource "null_resource" "join_workers" {
   count = var.worker_count
   depends_on = [
-    null_resource.fetch_join_command,
+    null_resource.wait_control_plane,
     proxmox_virtual_environment_vm.worker,
   ]
 
+  # Wait for worker cloud-init
   provisioner "remote-exec" {
     connection {
-      type        = "ssh"
-      host        = split("/", var.worker_ips[count.index])[0]
-      user        = local.ssh_user
-      private_key = file(pathexpand("~/.ssh/id_ed25519"))
-      host_key    = ""
-      timeout     = "10m"
+      type                = "ssh"
+      host                = split("/", var.worker_ips[count.index])[0]
+      user                = local.ssh_user
+      private_key         = file(pathexpand("~/.ssh/id_ed25519"))
+      host_key            = ""
+      timeout             = "10m"
+      bastion_host        = split("/", var.control_plane.ip)[0]
+      bastion_user        = local.ssh_user
+      bastion_private_key = file(pathexpand("~/.ssh/id_ed25519"))
+      bastion_host_key    = ""
     }
     inline = ["cloud-init status --wait"]
   }
 
-  provisioner "file" {
-    connection {
-      type        = "ssh"
-      host        = split("/", var.worker_ips[count.index])[0]
-      user        = local.ssh_user
-      private_key = file(pathexpand("~/.ssh/id_ed25519"))
-      host_key    = ""
-      timeout     = "10m"
-    }
-    source      = "/tmp/kubeadm-join.sh"
-    destination = "/tmp/kubeadm-join.sh"
-  }
-
+  # Copy join command from control plane to worker via Terraform (jump host connection)
   provisioner "remote-exec" {
     connection {
-      type        = "ssh"
-      host        = split("/", var.worker_ips[count.index])[0]
-      user        = local.ssh_user
-      private_key = file(pathexpand("~/.ssh/id_ed25519"))
-      host_key    = ""
-      timeout     = "10m"
+      type                = "ssh"
+      host                = split("/", var.control_plane.ip)[0]
+      user                = local.ssh_user
+      private_key         = file(pathexpand("~/.ssh/id_ed25519"))
+      host_key            = ""
+      timeout             = "5m"
+    }
+    inline = [
+      "scp -o StrictHostKeyChecking=no /tmp/kubeadm-join.sh ${local.ssh_user}@${split("/", var.worker_ips[count.index])[0]}:/tmp/kubeadm-join.sh"
+    ]
+  }
+
+  # Run the join on the worker
+  provisioner "remote-exec" {
+    connection {
+      type                = "ssh"
+      host                = split("/", var.worker_ips[count.index])[0]
+      user                = local.ssh_user
+      private_key         = file(pathexpand("~/.ssh/id_ed25519"))
+      host_key            = ""
+      timeout             = "10m"
+      bastion_host        = split("/", var.control_plane.ip)[0]
+      bastion_user        = local.ssh_user
+      bastion_private_key = file(pathexpand("~/.ssh/id_ed25519"))
+      bastion_host_key    = ""
     }
     inline = ["sudo bash /tmp/kubeadm-join.sh --node-name=k8s-worker-${count.index + 1}"]
   }
