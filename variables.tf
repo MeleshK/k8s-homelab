@@ -91,6 +91,12 @@ variable "worker" {
   }
 }
 
+variable "ha_enabled" {
+  type        = bool
+  description = "Enable HA control plane: kube-vip VIP + secondary CP join. Set false for single-node clusters."
+  default     = true
+}
+
 variable "worker_ips" {
   type        = list(string)
   description = "Static IPs (CIDR) for each worker, must have at least worker_count entries"
