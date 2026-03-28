@@ -32,23 +32,23 @@ resource "null_resource" "init_primary_cp" {
       timeout     = "20m"
     }
     inline = [
-      # Create placeholder admin.conf so kube-vip's volume mount succeeds before kubeadm init
+ssh -i ~/.ssh/id_ed25519 rocky@10.0.0.40 '
+  sudo kubeadm reset -f
+  sudo rm -rf /var/lib/etcd /var/lib/kubelet /etc/kubernetes
+  sudo systemctl start kubelet
+'
+tofu apply -replace=null_resource.init_primary_cp
+      # Phase 1: kube-vip WITHOUT --leaderElection so it claims VIP immediately
+      # without needing a running apiserver (no kubeconfig mount required)
       "sudo mkdir -p /etc/kubernetes/manifests",
-      "sudo touch /etc/kubernetes/admin.conf",
-
-      # kube-vip static pod — no --leaderElection on primary so it claims VIP immediately
-      # (leader election requires the apiserver, which doesn't exist yet before kubeadm init)
       "IFACE=$(ip route | grep default | awk '{print $5}' | head -1)",
       "sudo ctr image pull ghcr.io/kube-vip/kube-vip:${var.kube_vip_version}",
-      "sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:${var.kube_vip_version} vip /kube-vip manifest pod --interface $IFACE --address ${var.control_plane.vip} --controlplane --arp | sudo tee /etc/kubernetes/manifests/kube-vip.yaml",
+      "sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:${var.kube_vip_version} vip-bootstrap /kube-vip manifest pod --interface $IFACE --address ${var.control_plane.vip} --controlplane --arp | sudo tee /etc/kubernetes/manifests/kube-vip.yaml",
 
-      # Wait for kube-vip to claim the VIP before kubeadm tries to use it
-      "echo 'Waiting for kube-vip to claim ${var.control_plane.vip}...' && for i in $(seq 1 30); do ping -c1 -W1 ${var.control_plane.vip} > /dev/null 2>&1 && echo 'VIP is reachable' && break || echo \"Attempt $i: VIP not up yet, waiting 5s...\"; sleep 5; done",
+      # Wait for kube-vip to claim the VIP
+      "echo 'Waiting for kube-vip to claim ${var.control_plane.vip}...' && for i in $(seq 1 30); do ping -c1 -W1 ${var.control_plane.vip} > /dev/null 2>&1 && echo 'VIP is up' && break || echo \"Attempt $i: not up yet, waiting 5s...\"; sleep 5; done",
 
-      # Remove placeholder now that kube-vip is up — kubeadm will create the real one
-      "sudo rm -f /etc/kubernetes/admin.conf",
-
-      # kubeadm init — pipefail ensures a failed kubeadm exits non-zero even through tee
+      # kubeadm init — VIP is live, pipefail catches errors through tee
       "set -o pipefail && sudo kubeadm init --control-plane-endpoint=${var.control_plane.vip}:6443 --pod-network-cidr=${var.pod_cidr} --apiserver-advertise-address=${local.cp_ips[0]} --upload-certs --node-name=k8s-cp-1 2>&1 | sudo tee /var/log/kubeadm-init.log",
 
       # kubeconfig
@@ -56,7 +56,11 @@ resource "null_resource" "init_primary_cp" {
       "sudo cp /etc/kubernetes/admin.conf /home/${local.ssh_user}/.kube/config",
       "sudo chown ${local.ssh_user}:${local.ssh_user} /home/${local.ssh_user}/.kube/config",
 
-      # Wait for apiserver to be healthy via the VIP (not just pingable — fully ready)
+      # Phase 2: replace kube-vip manifest with --leaderElection now that apiserver exists
+      # This enables proper HA leader election between CP nodes
+      "sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:${var.kube_vip_version} vip-ha /kube-vip manifest pod --interface $IFACE --address ${var.control_plane.vip} --controlplane --arp --leaderElection | sudo tee /etc/kubernetes/manifests/kube-vip.yaml",
+
+      # Wait for apiserver to be healthy via the VIP
       "echo 'Waiting for apiserver at ${var.control_plane.vip}:6443...' && for i in $(seq 1 40); do curl -sk https://${var.control_plane.vip}:6443/healthz | grep -q ok && echo 'apiserver ready' && break || echo \"Attempt $i: not ready, waiting 5s...\"; sleep 5; done",
 
       # Calico
