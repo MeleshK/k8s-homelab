@@ -20,13 +20,14 @@ resource "null_resource" "init_cluster" {
       # Wait for cloud-init to finish
       "cloud-init status --wait",
       # Init control plane
-      "sudo kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=10.0.0.10",
+      "sudo kubeadm init --pod-network-cidr=${var.pod_cidr} --apiserver-advertise-address=${split("/", var.control_plane.ip)[0]}",
       # Set up kubeconfig
       "mkdir -p $HOME/.kube",
       "sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config",
       "sudo chown $(id -u):$(id -g) $HOME/.kube/config",
-      # Install Flannel CNI
-      "kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml",
+      # Install Calico CNI via Tigera operator
+      "kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/tigera-operator.yaml",
+      "kubectl apply -f /tmp/calico-installation.yaml",
       # Generate join command and stash it
       "sudo kubeadm token create --print-join-command > /tmp/join.sh"
     ]
