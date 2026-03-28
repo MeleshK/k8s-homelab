@@ -4,3 +4,4 @@ proxmox_password = "<YOUR_PROXMOX_PASSWORD>"
 proxmox_node     = "pve"
 ssh_public_key   = "ssh-ed25519 <YOUR_KEY> user@host"
 worker_count     = 2
+vm_password      = "changeme"

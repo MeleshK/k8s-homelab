@@ -33,6 +33,11 @@ write_files:
         name: default
       spec: {}
 
+chpasswd:
+  list: |
+    ubuntu:${vm_password}
+  expire: false
+
 runcmd:
   # Kernel modules
   - modprobe overlay

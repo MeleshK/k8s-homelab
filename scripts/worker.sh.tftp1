@@ -12,6 +12,11 @@ write_files:
       net.bridge.bridge-nf-call-ip6tables = 1
       net.ipv4.ip_forward                 = 1
 
+chpasswd:
+  list: |
+    ubuntu:${vm_password}
+  expire: false
+
 runcmd:
   - modprobe overlay
   - modprobe br_netfilter

@@ -14,6 +14,7 @@ resource "proxmox_virtual_environment_file" "control_plane_cloud_init" {
       k8s_version      = var.k8s_version
       pod_cidr         = var.pod_cidr
       control_plane_ip = split("/", var.control_plane.ip)[0]
+      vm_password      = var.vm_password
     })
     file_name = "k8s-control-plane-init.yaml"
   }
@@ -27,6 +28,7 @@ resource "proxmox_virtual_environment_file" "worker_cloud_init" {
   source_raw {
     data = templatefile("${path.module}/${local.worker_script}", {
       k8s_version = var.k8s_version
+      vm_password = var.vm_password
     })
     file_name = "k8s-worker-init.yaml"
   }

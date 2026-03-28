@@ -33,6 +33,11 @@ write_files:
         name: default
       spec: {}
 
+chpasswd:
+  list: |
+    rocky:${vm_password}
+  expire: false
+
 runcmd:
   - modprobe overlay
   - modprobe br_netfilter

@@ -47,6 +47,11 @@ variable "control_plane" {
   }
 }
 
+variable "vm_password" {
+  type      = string
+  sensitive = true
+}
+
 variable "os_type" {
   type    = string
   default = "rocky"
