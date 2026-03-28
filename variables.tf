@@ -94,7 +94,7 @@ variable "worker" {
 variable "ha_enabled" {
   type        = bool
   description = "Enable HA control plane: kube-vip VIP + secondary CP join. Set false for single-node clusters."
-  default     = true
+  default     = false
 }
 
 variable "worker_ips" {
