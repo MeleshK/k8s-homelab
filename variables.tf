@@ -35,16 +35,23 @@ variable "control_plane" {
     cores  = number
     memory = number
     disk   = number
-    ip     = string
+    ips    = list(string) # one per CP node
+    vip    = string       # kube-vip virtual IP (no CIDR)
     gw     = string
   })
   default = {
     cores  = 2
     memory = 4096
     disk   = 30
-    ip     = "10.0.0.40/24"
+    ips    = ["10.0.0.40/24", "10.0.0.41/24", "10.0.0.42/24"]
+    vip    = "10.0.0.39"
     gw     = "10.0.0.1"
   }
+}
+
+variable "kube_vip_version" {
+  type    = string
+  default = "v0.8.9"
 }
 
 variable "vm_password" {
@@ -87,5 +94,5 @@ variable "worker" {
 variable "worker_ips" {
   type        = list(string)
   description = "Static IPs (CIDR) for each worker, must have at least worker_count entries"
-  default     = ["10.0.0.41/24", "10.0.0.42/24", "10.0.0.43/24"]
+  default     = ["10.0.0.43/24", "10.0.0.44/24", "10.0.0.45/24"]
 }

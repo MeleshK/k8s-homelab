@@ -1,23 +1,26 @@
 locals {
-  ssh_user = var.os_type == "rocky" ? "rocky" : "ubuntu"
+  ssh_user      = var.os_type == "rocky" ? "rocky" : "ubuntu"
   cp_script     = var.os_type == "rocky" ? "scripts/control-plane-rocky.sh.tftp1" : "scripts/control-plane.sh.tftp1"
   worker_script = var.os_type == "rocky" ? "scripts/worker-rocky.sh.tftp1" : "scripts/worker.sh.tftp1"
+  cp_ips        = [for ip in var.control_plane.ips : split("/", ip)[0]]
+  cp_count      = length(var.control_plane.ips)
 }
 
 resource "proxmox_virtual_environment_file" "control_plane_cloud_init" {
+  count        = local.cp_count
   content_type = "snippets"
   datastore_id = "local"
   node_name    = var.proxmox_node
 
   source_raw {
     data = templatefile("${path.module}/${local.cp_script}", {
-      k8s_version      = var.k8s_version
-      pod_cidr         = var.pod_cidr
-      control_plane_ip = split("/", var.control_plane.ip)[0]
-      vm_password      = var.vm_password
-      ssh_public_key   = var.ssh_public_key
+      k8s_version    = var.k8s_version
+      pod_cidr       = var.pod_cidr
+      vm_password    = var.vm_password
+      ssh_public_key = var.ssh_public_key
+      cp_index       = count.index + 1
     })
-    file_name = "k8s-control-plane-init.yaml"
+    file_name = "k8s-cp-${count.index + 1}-init.yaml"
   }
 }
 
@@ -39,9 +42,10 @@ resource "proxmox_virtual_environment_file" "worker_cloud_init" {
 }
 
 resource "proxmox_virtual_environment_vm" "control_plane" {
-  name         = "k8s-control-plane"
-  node_name    = var.proxmox_node
-  vm_id        = 200
+  count         = local.cp_count
+  name          = "k8s-cp-${count.index + 1}"
+  node_name     = var.proxmox_node
+  vm_id         = 200 + count.index
   scsi_hardware = "virtio-scsi-single"
 
   clone {
@@ -72,7 +76,7 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
   initialization {
     ip_config {
       ipv4 {
-        address = var.control_plane.ip
+        address = var.control_plane.ips[count.index]
         gateway = var.control_plane.gw
       }
     }
@@ -83,7 +87,7 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
       username = local.ssh_user
       keys     = [var.ssh_public_key]
     }
-    user_data_file_id = proxmox_virtual_environment_file.control_plane_cloud_init.id
+    user_data_file_id = proxmox_virtual_environment_file.control_plane_cloud_init[count.index].id
   }
 
   agent { enabled = true }
@@ -94,10 +98,10 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
 }
 
 resource "proxmox_virtual_environment_vm" "worker" {
-  count        = var.worker_count
-  name         = "k8s-worker-${count.index + 1}"
-  node_name    = var.proxmox_node
-  vm_id        = 201 + count.index
+  count         = var.worker_count
+  name          = "k8s-worker-${count.index + 1}"
+  node_name     = var.proxmox_node
+  vm_id         = 210 + count.index
   scsi_hardware = "virtio-scsi-single"
 
   clone {

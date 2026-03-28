@@ -1,5 +1,5 @@
 #cloud-config
-hostname: k8s-control-plane
+hostname: k8s-cp-${cp_index}
 manage_etc_hosts: true
 package_update: true
 package_upgrade: false
@@ -10,6 +10,11 @@ users:
       - ${ssh_public_key}
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
+
+chpasswd:
+  list: |
+    rocky:${vm_password}
+  expire: false
 
 write_files:
   - path: /etc/modules-load.d/k8s.conf
@@ -42,11 +47,6 @@ write_files:
         name: default
       spec: {}
 
-chpasswd:
-  list: |
-    rocky:${vm_password}
-  expire: false
-
 runcmd:
   - modprobe overlay
   - modprobe br_netfilter
@@ -59,6 +59,9 @@ runcmd:
   # SELinux — set permissive (kubeadm requirement)
   - setenforce 0
   - sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+
+  # Set hostname before kubeadm registers the node
+  - hostnamectl set-hostname k8s-cp-${cp_index}
 
   # containerd
   - dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
@@ -80,25 +83,6 @@ runcmd:
     EOF
   - dnf install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
   - systemctl enable --now kubelet
-
-  # Set hostname before kubeadm registers the node
-  - hostnamectl set-hostname k8s-control-plane
-
-  # Init control plane
-  - kubeadm init --pod-network-cidr=${pod_cidr} --apiserver-advertise-address=${control_plane_ip} --node-name=k8s-control-plane 2>&1 | tee /var/log/kubeadm-init.log
-
-  # kubeconfig for rocky user
-  - mkdir -p /home/rocky/.kube
-  - cp /etc/kubernetes/admin.conf /home/rocky/.kube/config
-  - chown rocky:rocky /home/rocky/.kube/config
-
-  # Calico CNI via Tigera operator
-  - sudo -u rocky kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/tigera-operator.yaml
-  - sudo -u rocky kubectl apply -f /tmp/calico-installation.yaml
-
-  # Save join command for workers
-  - kubeadm token create --print-join-command > /tmp/kubeadm-join.sh
-  - chmod +x /tmp/kubeadm-join.sh
 
   # Final system update
   - dnf update -y
