@@ -27,7 +27,7 @@ resource "null_resource" "join_workers" {
   provisioner "remote-exec" {
     connection {
       type        = "ssh"
-      host        = proxmox_virtual_environment_vm.worker[count.index].ipv4_addresses[1][0]
+      host        = split("/", var.worker_ips[count.index])[0]
       user        = local.ssh_user
       private_key = file(pathexpand("~/.ssh/id_ed25519"))
       host_key    = ""
@@ -42,5 +42,5 @@ resource "null_resource" "join_workers" {
 
 output "control_plane_ip" { value = split("/", var.control_plane.ip)[0] }
 output "worker_ips" {
-  value = [for w in proxmox_virtual_environment_vm.worker : w.ipv4_addresses[1][0]]
+  value = [for ip in var.worker_ips : split("/", ip)[0]]
 }

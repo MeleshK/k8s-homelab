@@ -83,3 +83,9 @@ variable "worker" {
     disk   = 30
   }
 }
+
+variable "worker_ips" {
+  type        = list(string)
+  description = "Static IPs (CIDR) for each worker, must have at least worker_count entries"
+  default     = ["10.0.0.41/24", "10.0.0.42/24", "10.0.0.43/24"]
+}

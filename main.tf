@@ -37,9 +37,10 @@ resource "proxmox_virtual_environment_file" "worker_cloud_init" {
 }
 
 resource "proxmox_virtual_environment_vm" "control_plane" {
-  name      = "k8s-control-plane"
-  node_name = var.proxmox_node
-  vm_id     = 200
+  name         = "k8s-control-plane"
+  node_name    = var.proxmox_node
+  vm_id        = 200
+  scsi_hardware = "virtio-scsi-single"
 
   clone {
     vm_id = var.template_id
@@ -91,10 +92,11 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
 }
 
 resource "proxmox_virtual_environment_vm" "worker" {
-  count     = var.worker_count
-  name      = "k8s-worker-${count.index + 1}"
-  node_name = var.proxmox_node
-  vm_id     = 201 + count.index
+  count        = var.worker_count
+  name         = "k8s-worker-${count.index + 1}"
+  node_name    = var.proxmox_node
+  vm_id        = 201 + count.index
+  scsi_hardware = "virtio-scsi-single"
 
   clone {
     vm_id = var.template_id
@@ -122,7 +124,10 @@ resource "proxmox_virtual_environment_vm" "worker" {
 
   initialization {
     ip_config {
-      ipv4 { address = "dhcp" }
+      ipv4 {
+        address = var.worker_ips[count.index]
+        gateway = var.control_plane.gw
+      }
     }
     dns { servers = ["10.0.0.1", "8.8.8.8"] }
     user_account {
