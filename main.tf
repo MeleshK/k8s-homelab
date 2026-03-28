@@ -22,6 +22,7 @@ resource "proxmox_virtual_environment_file" "control_plane_cloud_init" {
 }
 
 resource "proxmox_virtual_environment_file" "worker_cloud_init" {
+  count        = var.worker_count
   content_type = "snippets"
   datastore_id = "local"
   node_name    = var.proxmox_node
@@ -31,8 +32,9 @@ resource "proxmox_virtual_environment_file" "worker_cloud_init" {
       k8s_version    = var.k8s_version
       vm_password    = var.vm_password
       ssh_public_key = var.ssh_public_key
+      worker_index   = count.index + 1
     })
-    file_name = "k8s-worker-init.yaml"
+    file_name = "k8s-worker-${count.index + 1}-init.yaml"
   }
 }
 
@@ -134,7 +136,7 @@ resource "proxmox_virtual_environment_vm" "worker" {
       username = local.ssh_user
       keys     = [var.ssh_public_key]
     }
-    user_data_file_id = proxmox_virtual_environment_file.worker_cloud_init.id
+    user_data_file_id = proxmox_virtual_environment_file.worker_cloud_init[count.index].id
   }
 
   agent { enabled = true }

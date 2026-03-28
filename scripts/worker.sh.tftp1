@@ -1,4 +1,6 @@
 #cloud-config
+hostname: k8s-worker-${worker_index}
+manage_etc_hosts: true
 package_update: true
 
 users:
