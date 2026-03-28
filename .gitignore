@@ -1,0 +1,9 @@
+# Secret vars
+terraform.tfvars
+*.tfvars
+
+# OpenTofu state (contains secrets in plaintext)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
