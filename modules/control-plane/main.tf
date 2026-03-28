@@ -40,7 +40,7 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
       servers = ["10.0.0.1", "8.8.8.8"]
     }
     user_account {
-      username = "ubuntu"
+      username = "mil"
       keys     = [var.ssh_public_key]
     }
     user_data_file_id = proxmox_virtual_environment_file.bootstrap_cloud_init.id

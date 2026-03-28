@@ -44,10 +44,4 @@ runcmd:
   - dnf install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
   - systemctl enable --now kubelet
 
-  # Join — pull command from control plane via SSH
-  - |
-    for i in $(seq 1 20); do
-      ssh -o StrictHostKeyChecking=no -i /home/rocky/.ssh/id_rsa rocky@${control_plane_ip} 'cat /tmp/kubeadm-join.sh' > /tmp/join.sh 2>/dev/null && break
-      sleep 15
-    done
-  - bash /tmp/join.sh
+  # Ready for kubeadm join — Terraform will run the join command via remote-exec

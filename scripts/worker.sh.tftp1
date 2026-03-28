@@ -38,11 +38,4 @@ runcmd:
   - apt-get install -y kubelet kubeadm kubectl
   - apt-mark hold kubelet kubeadm kubectl
 
-  # Join — pull command from control plane via SSH
-  # Workers wait for control plane to be ready, then pull the join command
-  - |
-    for i in $(seq 1 20); do
-      ssh -o StrictHostKeyChecking=no -i /home/ubuntu/.ssh/id_rsa ubuntu@${control_plane_ip} 'cat /tmp/kubeadm-join.sh' > /tmp/join.sh 2>/dev/null && break
-      sleep 15
-    done
-  - bash /tmp/join.sh
+  # Ready for kubeadm join — Terraform will run the join command via remote-exec
