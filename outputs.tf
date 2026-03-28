@@ -50,12 +50,23 @@ resource "null_resource" "init_primary_cp" {
       "sudo cp /etc/kubernetes/admin.conf /home/${local.ssh_user}/.kube/config",
       "sudo chown ${local.ssh_user}:${local.ssh_user} /home/${local.ssh_user}/.kube/config",
 
+      # kube-vip local kubeconfig — breaks the VIP bootstrap deadlock.
+      # admin.conf server = https://VIP:6443, but phase 2 kube-vip doesn't hold
+      # the VIP yet when it first starts, so it can't reach the API to win the
+      # leader election. Give it a kubeconfig pointing to localhost:6443 instead;
+      # the API server cert always includes localhost as a SAN.
+      "sudo cp /etc/kubernetes/admin.conf /etc/kubernetes/kube-vip.conf",
+      "sudo sed -i 's|https://${var.control_plane.vip}:6443|https://localhost:6443|g' /etc/kubernetes/kube-vip.conf",
+
       # kube-vip RBAC — kubernetes-admin needs lease access for leader election
       "kubectl --kubeconfig=/home/${local.ssh_user}/.kube/config apply -f - <<'RBAC'\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\nmetadata:\n  name: system:kube-vip-role\nrules:\n- apiGroups: [\"coordination.k8s.io\"]\n  resources: [\"leases\"]\n  verbs: [\"get\",\"create\",\"update\",\"list\",\"watch\"]\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata:\n  name: system:kube-vip-binding\nroleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: ClusterRole\n  name: system:kube-vip-role\nsubjects:\n- kind: User\n  name: kubernetes-admin\n  apiGroup: rbac.authorization.k8s.io\nRBAC",
 
       # Phase 2: replace kube-vip manifest with --leaderElection now that apiserver exists
       # This enables proper HA leader election between CP nodes
       "sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:${var.kube_vip_version} vip-ha /kube-vip manifest pod --interface $IFACE --address ${var.control_plane.vip} --controlplane --arp --leaderElection | sudo tee /etc/kubernetes/manifests/kube-vip.yaml",
+
+      # Patch manifest to use local kubeconfig (all three references: KUBECONFIG env, mountPath, hostPath)
+      "sudo sed -i 's|/etc/kubernetes/admin.conf|/etc/kubernetes/kube-vip.conf|g' /etc/kubernetes/manifests/kube-vip.yaml",
 
       # Wait for apiserver to be healthy via the VIP
       "echo 'Waiting for apiserver at ${var.control_plane.vip}:6443...' && for i in $(seq 1 40); do curl -sk https://${var.control_plane.vip}:6443/healthz | grep -q ok && echo 'apiserver ready' && break || echo \"Attempt $i: not ready, waiting 5s...\"; sleep 5; done",
