@@ -47,6 +47,16 @@ variable "control_plane" {
   }
 }
 
+variable "k8s_version" {
+  type    = string
+  default = "1.32"
+}
+
+variable "pod_cidr" {
+  type    = string
+  default = "10.244.0.0/16"
+}
+
 variable "worker" {
   type = object({
     cores  = number

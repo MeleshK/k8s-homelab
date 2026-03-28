@@ -12,7 +12,7 @@ resource "null_resource" "init_cluster" {
       type        = "ssh"
       host        = "10.0.0.10"
       user        = "ubuntu"
-      private_key = file("~/.ssh/id_ed25519")
+      private_key = file(pathexpand("~/.ssh/id_ed25519"))
     }
     inline = [
       # Wait for cloud-init to finish
@@ -41,7 +41,7 @@ resource "null_resource" "join_workers" {
       type        = "ssh"
       host        = proxmox_virtual_environment_vm.worker[count.index].ipv4_addresses[1][0]
       user        = "ubuntu"
-      private_key = file("~/.ssh/id_ed25519")
+      private_key = file(pathexpand("~/.ssh/id_ed25519"))
     }
     inline = [
       "cloud-init status --wait",
