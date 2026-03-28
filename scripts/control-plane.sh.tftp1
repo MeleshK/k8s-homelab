@@ -94,3 +94,6 @@ runcmd:
   # Save join command for workers
   - kubeadm token create --print-join-command > /tmp/kubeadm-join.sh
   - chmod +x /tmp/kubeadm-join.sh
+
+  # Final system update
+  - apt-get upgrade -y

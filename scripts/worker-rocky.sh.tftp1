@@ -61,4 +61,7 @@ runcmd:
   # Set hostname before kubeadm join registers the node
   - hostnamectl set-hostname k8s-worker-${worker_index}
 
+  # Final system update
+  - dnf update -y
+
   # Ready for kubeadm join — Terraform will run the join command via remote-exec
