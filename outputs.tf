@@ -35,7 +35,7 @@ resource "null_resource" "join_workers" {
     }
     inline = [
       "cloud-init status --wait",
-      "ssh -o StrictHostKeyChecking=no ${local.ssh_user}@${split("/", var.control_plane.ip)[0]} 'cat /tmp/kubeadm-join.sh' | sudo bash"
+      "ssh -o StrictHostKeyChecking=no ${local.ssh_user}@${split("/", var.control_plane.ip)[0]} 'cat /tmp/kubeadm-join.sh' | sudo bash -s -- --node-name=k8s-worker-$((${count.index} + 1))"
     ]
   }
 }

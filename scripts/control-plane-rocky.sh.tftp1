@@ -81,8 +81,11 @@ runcmd:
   - dnf install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
   - systemctl enable --now kubelet
 
+  # Set hostname before kubeadm registers the node
+  - hostnamectl set-hostname k8s-control-plane
+
   # Init control plane
-  - kubeadm init --pod-network-cidr=${pod_cidr} --apiserver-advertise-address=${control_plane_ip} 2>&1 | tee /var/log/kubeadm-init.log
+  - kubeadm init --pod-network-cidr=${pod_cidr} --apiserver-advertise-address=${control_plane_ip} --node-name=k8s-control-plane 2>&1 | tee /var/log/kubeadm-init.log
 
   # kubeconfig for rocky user
   - mkdir -p /home/rocky/.kube
