@@ -84,5 +84,8 @@ runcmd:
   - dnf install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
   - systemctl enable --now kubelet
 
+  # Pre-pull control plane images so kubeadm init is faster
+  - kubeadm config images pull
+
   # Final system update
   - dnf update -y

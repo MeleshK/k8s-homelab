@@ -79,5 +79,8 @@ runcmd:
   - apt-get install -y kubelet kubeadm kubectl
   - apt-mark hold kubelet kubeadm kubectl
 
+  # Pre-pull control plane images so kubeadm init is faster
+  - kubeadm config images pull
+
   # Final system update
   - apt-get upgrade -y
