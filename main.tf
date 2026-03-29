@@ -3,7 +3,7 @@ locals {
   cp_script     = var.os_type == "rocky" ? "scripts/control-plane-rocky.sh.tftp1" : "scripts/control-plane.sh.tftp1"
   worker_script = var.os_type == "rocky" ? "scripts/worker-rocky.sh.tftp1" : "scripts/worker.sh.tftp1"
   cp_ips        = [for ip in var.control_plane.ips : split("/", ip)[0]]
-  cp_count      = length(var.control_plane.ips)
+  cp_count      = var.ha_enabled ? length(var.control_plane.ips) : 1
 }
 
 resource "proxmox_virtual_environment_file" "control_plane_cloud_init" {
