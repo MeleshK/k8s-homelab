@@ -2,7 +2,7 @@
 resource "null_resource" "wait_control_planes" {
   count      = local.cp_count
   depends_on = [proxmox_virtual_environment_vm.control_plane]
-  triggers   = { ip = var.control_plane.ips[count.index] }
+  triggers   = { vm_id = proxmox_virtual_environment_vm.control_plane[count.index].id }
 
   provisioner "remote-exec" {
     connection {
@@ -20,7 +20,7 @@ resource "null_resource" "wait_control_planes" {
 # Step 2: Bootstrap primary CP — kube-vip + kubeadm init + Calico + save join commands
 resource "null_resource" "init_primary_cp" {
   depends_on = [null_resource.wait_control_planes]
-  triggers   = { ip = var.control_plane.ips[0] }
+  triggers   = { vm_id = proxmox_virtual_environment_vm.control_plane[0].id }
 
   provisioner "remote-exec" {
     connection {
@@ -84,7 +84,7 @@ resource "null_resource" "init_primary_cp" {
 # Step 3: Fetch both join commands to local machine (with retry)
 resource "null_resource" "fetch_join_commands" {
   depends_on = [null_resource.init_primary_cp]
-  triggers   = { ip = var.control_plane.ips[0] }
+  triggers   = { vm_id = proxmox_virtual_environment_vm.control_plane[0].id }
 
   provisioner "local-exec" {
     command = <<-EOF
@@ -114,7 +114,7 @@ resource "null_resource" "fetch_join_commands" {
 resource "null_resource" "join_secondary_cps" {
   count      = var.ha_enabled ? local.cp_count - 1 : 0
   depends_on = [null_resource.fetch_join_commands]
-  triggers   = { ip = var.control_plane.ips[count.index + 1] }
+  triggers   = { vm_id = proxmox_virtual_environment_vm.control_plane[count.index + 1].id }
 
   provisioner "file" {
     connection {
@@ -163,6 +163,7 @@ resource "null_resource" "join_workers" {
     null_resource.fetch_join_commands,
     proxmox_virtual_environment_vm.worker,
   ]
+  triggers = { vm_id = proxmox_virtual_environment_vm.worker[count.index].id }
 
   provisioner "remote-exec" {
     connection {
