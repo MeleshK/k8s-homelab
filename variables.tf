@@ -35,24 +35,18 @@ variable "control_plane" {
     cores  = number
     memory = number
     disk   = number
-    ips    = list(string) # one per CP node
-    vip    = string       # kube-vip virtual IP (no CIDR)
+    ips    = list(string)
     gw     = string
   })
   default = {
     cores  = 2
     memory = 4096
     disk   = 30
-    ips    = ["10.0.0.40/24", "10.0.0.41/24", "10.0.0.42/24"]
-    vip    = "10.0.0.39"
+    ips    = ["10.0.0.40/24"]
     gw     = "10.0.0.1"
   }
 }
 
-variable "kube_vip_version" {
-  type    = string
-  default = "v0.8.9"
-}
 
 variable "vm_password" {
   type      = string
@@ -89,12 +83,6 @@ variable "worker" {
     memory = 8192
     disk   = 30
   }
-}
-
-variable "ha_enabled" {
-  type        = bool
-  description = "Enable HA control plane: kube-vip VIP + secondary CP join. Set false for single-node clusters."
-  default     = false
 }
 
 variable "worker_ips" {
